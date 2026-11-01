@@ -17,6 +17,8 @@
 
 <img src="docs/screenshots/en/1-shelf.jpg" width="200" /> <img src="docs/screenshots/en/2-opened.jpg" width="200" /> <img src="docs/screenshots/en/3-riddle.jpg" width="200" /> <img src="docs/screenshots/en/8-edit.jpg" width="200" />
 
+**[Download the APK](https://github.com/bigdevwhale/matryoshka/releases/latest/download/Matryoshka.apk)** · Android 11+
+
 </div>
 
 ---
