@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -93,7 +94,8 @@ fun Root(s: Settings, tab: Tab = Tab.SHELF, overlay: Overlay? = null) {
         if (incoming != null) c.incoming.value = null
     }
 
-    Box(Modifier.fillMaxSize().background(C.bg).room()) {
+    // The keyboard pushes the content up instead of covering the field being typed into.
+    Box(Modifier.fillMaxSize().background(C.bg).room().imePadding()) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f)) {
                 when (nav.tab) {

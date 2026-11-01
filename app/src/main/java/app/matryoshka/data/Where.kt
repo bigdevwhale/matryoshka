@@ -17,7 +17,7 @@ object Where {
         ctx.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ctx.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    private fun providers(lm: LocationManager) = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.FUSED_PROVIDER)
+    private fun providers(lm: LocationManager) = listOf(LocationManager.FUSED_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)
         .filter { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
 
     /** One fresh fix, or the freshest known one if none comes within 20 s. */
@@ -26,6 +26,9 @@ object Where {
         if (!allowed(ctx)) return null
         val lm = ctx.getSystemService(LocationManager::class.java) ?: return null
         val ps = providers(lm)
+        // A fix from the last two minutes is good enough and saves waiting for a satellite indoors.
+        ps.mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }
+            .filter { System.currentTimeMillis() - it.time < 120_000 }.maxByOrNull { it.time }?.let { return it }
         val fresh = withTimeoutOrNull(20_000) {
             suspendCancellableCoroutine { cont ->
                 val sig = android.os.CancellationSignal()

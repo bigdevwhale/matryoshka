@@ -143,7 +143,10 @@ fun OpenScreen(id: String, s: Settings, nav: Nav, demoNow: Long? = null) {
         value = withContext(Dispatchers.IO) { g.progress.keys.mapIndexedNotNull { i, k -> g.sealed.open(i, k) } }
     }
     val list = opened ?: return
-    if (g.done && list.size == g.sealed.count) Review(g, list, s, nav) else Opening(g, list, s, nav, demoNow)
+    // Fully opened before this visit: show everything. Opened just now: stay on the gift until "to the shelf".
+    var reviewing by remember(id) { mutableStateOf(g.done) }
+    if (reviewing && list.size == g.sealed.count) Review(g, list, s, nav)
+    else Opening(g, list, s, nav, demoNow, onFinished = { reviewing = true })
 }
 
 @Composable
@@ -164,15 +167,16 @@ private fun Header(g: Got, cur: Int, nav: Nav) {
 }
 
 @Composable
-private fun Opening(g: Got, list: List<Opened>, s: Settings, nav: Nav, demoNow: Long?) {
+private fun Opening(g: Got, list: List<Opened>, s: Settings, nav: Nav, demoNow: Long?, onFinished: () -> Unit) {
     val ctx = LocalContext.current
     val c = ctx.container
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    val i = list.size
+    // The figure on the table. A figure is saved the moment it opens; the table moves on only with "next".
+    var i by remember(g.meta.id) { mutableIntStateOf(list.size.coerceAtMost(g.sealed.count - 1)) }
     val f = g.meta.figures[i]
     val solid = i == g.sealed.count - 1
-    val seed = if (i == 0) g.meta.seed else list[i - 1].next ?: g.meta.seed
+    val seed = if (i == 0) g.meta.seed else list.getOrNull(i - 1)?.next ?: g.meta.seed
     var phase by remember(i) { mutableStateOf(if (f.lock.kind == LockKind.NONE) Phase.READY else Phase.LOCKED) }
     var got by remember(i) { mutableStateOf<Opened?>(null) }
     var sheet by remember(i) { mutableStateOf(false) }
@@ -188,6 +192,7 @@ private fun Opening(g: Got, list: List<Opened>, s: Settings, nav: Nav, demoNow: 
             if (o == null) { Toast.show(ctx.getString(R.string.open_broken)); return@launch }
             got = o
             phase = Phase.SHOWN
+            c.opened(g.meta.id, o)
             if (solid) petals = true else open.animateTo(1f, spring(dampingRatio = .55f, stiffness = Spring.StiffnessVeryLow))
             delay(if (solid) 600 else 200)
             sheet = true
@@ -198,7 +203,7 @@ private fun Opening(g: Got, list: List<Opened>, s: Settings, nav: Nav, demoNow: 
         scope.launch {
             sheet = false
             leave.animateTo(1f, tween(380))
-            c.opened(g.meta.id, o)
+            i = o.index + 1
         }
     }
 
@@ -206,8 +211,9 @@ private fun Opening(g: Got, list: List<Opened>, s: Settings, nav: Nav, demoNow: 
         Column(Modifier.fillMaxSize()) {
             Header(g, i, nav)
             // The stage: the figure stands on the table; the next one waits inside.
-            Box(Modifier.fillMaxWidth().weight(1f).padding(bottom = 6.dp), contentAlignment = Alignment.BottomCenter) {
-                val w = (220 - i * 14).coerceAtLeast(120).dp
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f).padding(bottom = 6.dp), contentAlignment = Alignment.BottomCenter) {
+                // The figure fits the stage: with the keyboard up it gets smaller rather than climbing over the title.
+                val w = minOf((220 - i * 14).coerceAtLeast(120).dp, (maxHeight - 24.dp) * (2f / 3f))
                 Canvas(Modifier.width(w + 40.dp).height(26.dp)) {
                     drawOval(Brush.radialGradient(listOf(Color(0x8C000000), Color.Transparent)), Offset.Zero, size)
                 }
@@ -280,7 +286,7 @@ private fun Opening(g: Got, list: List<Opened>, s: Settings, nav: Nav, demoNow: 
         }
         if (petals) Petals()
         AnimatedVisibility(sheet, Modifier.align(Alignment.BottomCenter), enter = slideInVertically { it }, exit = slideOutVertically { it }) {
-            got?.let { o -> ContentSheet(g, o, f, solid, s, onNext = ::next, onDone = { scope.launch { c.opened(g.meta.id, o) } }) }
+            got?.let { o -> ContentSheet(g, o, f, solid, s, onNext = ::next, onDone = onFinished) }
         }
     }
 }

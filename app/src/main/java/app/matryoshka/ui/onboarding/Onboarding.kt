@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -56,7 +57,7 @@ fun Onboarding(s: Settings, start: Int = 0) {
     var page by remember { mutableIntStateOf(start) }
     var name by remember { mutableStateOf(s.name) }
     val last = 3
-    Column(Modifier.fillMaxSize().background(C.bg).room().statusBarsPadding().navigationBarsPadding().padding(horizontal = 22.dp)) {
+    Column(Modifier.fillMaxSize().background(C.bg).room().statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 22.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.Center) {
             for (i in 0..last) Box(Modifier.padding(3.dp).size(if (i == page) 22.dp else 7.dp, 7.dp).clip(CircleShape).background(if (i == page) C.gold else C.gold.copy(alpha = .25f)))
         }
