@@ -11,6 +11,7 @@ import app.matryoshka.domain.Sealed
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 import java.util.Base64
 
 /** A matryoshka someone gave me, and how far I've got into it. */
@@ -80,7 +81,7 @@ class Store(root: File) {
     // ---- received ----
 
     fun putGot(s: Sealed) {
-        File(gotDir, "${safe(s.meta.id)}.${Matr.EXT}").writeBytes(s.bytes)
+        put(File(gotDir, "${safe(s.meta.id)}.${Matr.EXT}"), s.bytes)
         if (!progressFile(s.meta.id).exists()) saveProgress(s.meta.id, Progress())
     }
 
@@ -104,7 +105,7 @@ class Store(root: File) {
         val j = JSONObject().put("keys", JSONArray(p.keys.map(::b64))).put("added", p.added).put("replied", p.replied)
             .put("notes", JSONObject().apply { p.notes.forEach { (k, v) -> put(k.toString(), v) } })
             .put("voices", JSONObject().apply { p.voices.forEach { (k, v) -> put(k.toString(), v) } })
-        progressFile(id).writeText(j.toString())
+        put(progressFile(id), j.toString().toByteArray())
     }
 
     fun deleteGot(id: String) {
@@ -119,8 +120,8 @@ class Store(root: File) {
         val j = JSONObject().put("id", g.id).put("title", g.title).put("to", g.to).put("at", g.at)
             .put("authors", JSONArray(g.authors)).put("paints", JSONArray(g.paints.map { it.name }))
             .put("locks", JSONArray(g.locks.map { it.name })).put("sealer", g.sealer).put("mine", g.mine)
-        File(givenDir, "${safe(g.id)}.json").writeText(j.toString())
-        if (sealed != null) File(givenDir, "${safe(g.id)}.${Matr.EXT}").writeBytes(sealed)
+        put(File(givenDir, "${safe(g.id)}.json"), j.toString().toByteArray())
+        if (sealed != null) put(File(givenDir, "${safe(g.id)}.${Matr.EXT}"), sealed)
     }
 
     fun givenFile(id: String): File? = File(givenDir, "${safe(id)}.${Matr.EXT}").takeIf { it.exists() }
@@ -139,16 +140,26 @@ class Store(root: File) {
     }
 
     fun putReply(r: Reply, bytes: ByteArray) {
-        File(replyDir, "${safe(r.id)}_${r.at}.${Matr.EXT}").writeBytes(bytes)
+        put(File(replyDir, "${safe(r.id)}_${r.at}.${Matr.EXT}"), bytes)
     }
 
     // ---- drafts ----
 
     fun putDraft(r: Relay) {
-        File(draftDir, "${safe(r.id)}.${Matr.EXT}").writeBytes(Matr.relay(r))
+        put(File(draftDir, "${safe(r.id)}.${Matr.EXT}"), Matr.relay(r))
     }
 
     fun deleteDraft(id: String) {
         File(draftDir, "${safe(id)}.${Matr.EXT}").delete()
+    }
+
+    /**
+     * Writes aside, forces it to the disk, then renames over the old file: a sudden power-off leaves the old
+     * version or the new one, never a cut-off file that would lose a doll's opened figures.
+     */
+    private fun put(f: File, bytes: ByteArray) {
+        val tmp = File(f.parentFile, f.name + ".tmp")
+        FileOutputStream(tmp).use { out -> out.write(bytes); out.flush(); out.fd.sync() }
+        if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
     }
 }
